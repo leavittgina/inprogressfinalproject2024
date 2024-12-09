@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .card {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background-color: white;
+            transition: background-color 0.2s;
+        }
+        .card.selected {
+            background-color: #d3f9d8;
+        }
+        .card img {
+            width: 50%;
+            height: 50%;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Set Card Game</h1>
+    <div id="status">Find a set!</div>
+
+    <div class="game-board" id="gameBoard"></div>
+
+    <div class="controls">
+        <button id="newGameButton">New Game</button>
+        <button id="hintButton">Hint</button>
+    </div>
+
+    <script>
+        const shapes = ['diamond', 'squiggle', 'oval'];
+        const colors = ['red', 'green', 'purple'];
+        const numbers = [1, 2, 3];
+        const shadings = ['solid', 'striped', 'open'];
+        
+        let deck = [];
+        let selectedCards = [];
+        let currentSet = [];
+        let gameInProgress = false;
+
+        // Create the deck of 81 unique cards
+        function generateDeck() {
+            deck = [];
+            for (let num of numbers) {
+                for (let color of colors) {
+                    for (let shape of shapes) {
+                        for (let shading of shadings) {
+                            deck.push({ num, color, shape, shading });
+                        }
+                    }
+                }
+            }
+            shuffleDeck();
+        }
+
+        // Shuffle the deck using Fisher-Yates algorithm
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        // Draw cards on the game board
+        function drawBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';  // Clear existing cards
+            const visibleCards = deck.slice(0, 12);  // Show 12 cards initially
+
+            visibleCards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.index = index;
+                cardElement.onclick = () => selectCard(cardElement, card);
+                cardElement.innerHTML = `${card.num} ${card.shape} ${card.color} ${card.shading}`;
+                board.appendChild(cardElement);
+            });
+        }
+
+        // Select a card, check if it's a valid set
+        function selectCard(cardElement, card) {
+            if (!gameInProgress) return;
+
+            cardElement.classList.toggle('selected');
+            const index = parseInt(cardElement.dataset.index);
+            if (selectedCards.includes(index)) {
+                selectedCards = selectedCards.filter(i => i !== index);
+            } else {
+                selectedCards.push(index);
+            }
+
+            if (selectedCards.length === 3) {
+                checkSet();
+            }
+        }
+
+        // Check if the selected cards form a set
+        function checkSet() {
+            const selectedCardsData = selectedCards.map(index => deck[index]);
+            if (isSet(selectedCardsData)) {
+                document.getElementById('status').innerText = 'Set found!';
+                selectedCards.forEach(index => document.querySelector(`.card[data-index="${index}"]`).classList.add('set-found'));
+                selectedCards = [];
+            } else {
+                document.getElementById('status').innerText = 'Not a set, try again!';
+                selectedCards = [];
+                setTimeout(() => resetSelection(), 1000);
+            }
+        }
+
+        // Check if three cards form a set
+        function isSet(cards) {
+            for (let i = 0; i < 4; i++) {
+                const attributeValues = cards.map(card => card[Object.keys(card)[i]]);
+                if (!(new Set(attributeValues).size === 1 || new Set(attributeValues).size === 3)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Reset the selection after a failed attempt
+        function resetSelection() {
+            document.querySelectorAll('.card.selected').forEach(card => card.classList.remove('selected'));
+        }
+
+        // Start a new game
+        function startNewGame() {
+            generateDeck();
+            gameInProgress = true;
+            drawBoard();
+            document.getElementById('status').innerText = 'Find a set!';
+        }
+
+        // Show a hint (find a set for the user)
+        function showHint() {
+            const hintSet = findSetHint();
+            if (hintSet) {
+                hintSet.forEach(index => document.querySelector(`.card[data-index="${index}"]`).classList.add('hint'));
+                setTimeout(() => document.querySelectorAll('.card.hint').forEach(card => card.classList.remove('hint')), 1500);
+            } else {
+                document.getElementById('status').innerText = 'No sets found!';
+            }
+        }
+
+        // Find a valid set in the deck for hint
+        function findSetHint() {
+            for (let i = 0; i < deck.length - 2; i++) {
+                for (let j = i + 1; j < deck.length - 1; j++) {
+                    for (let k = j + 1; k < deck.length; k++) {
+                        const cards = [deck[i], deck[j], deck[k]];
+                        if (isSet(cards)) {
+                            return [i, j, k];
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Initialize the game
+        document.getElementById('newGameButton').onclick = startNewGame;
+        document.getElementById('hintButton').onclick = showHint;
+
+        startNewGame();
+    </script>
+
+</body>
+</html>
